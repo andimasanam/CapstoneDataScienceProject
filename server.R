@@ -43,21 +43,13 @@ server = function(input, output) {
   
   output$table <- DT::renderDataTable({
     corpUS = en_US$corpUS
-    
-    ## http://rpubs.com/Hsing-Yi/176027
-    #'@ if(!is.null(input$name) | input$name != "") {
-      criteria = strsplit(input$name, ' ')[[1]]
-      
+    criteria = strsplit(input$name, ' ')[[1]]
       len = length(criteria)
       if(len == 1) {
         corpUS %<>% filter(word1 == criteria[1]) %>% tbl_df
       } else if(len == 2) {
         corpUS %<>% filter(word1 == criteria[1] & 
                            word2 == criteria[2]) %>% tbl_df
-      #'@ } else if(len == 3) {
-      #'@   corpUS %<>% filter(word1 == criteria[1] & 
-      #'@                    word2 == criteria[2] & 
-      #'@                    word3 == criteria[3]) %>% tbl_df
       } else {
         corpUS = data.frame() %>% tbl_df
       }
@@ -67,8 +59,6 @@ server = function(input, output) {
   output$text3 <- renderText({
     corpUS = en_US$corpUS
     
-    ## http://rpubs.com/Hsing-Yi/176027
-    #'@ if(!is.null(input$name) | input$name != "") {
     criteria = strsplit(input$name, ' ')[[1]]
     
     len = length(criteria)
@@ -77,10 +67,6 @@ server = function(input, output) {
     } else if(len == 2) {
       corpUS %<>% filter(word1 == criteria[1] & 
                            word2 == criteria[2]) %>% tbl_df %>% .[1, 3] %>% unlist
-    #'@ } else if(len == 3) {
-    #'@   corpUS %<>% filter(word1 == criteria[1] & 
-    #'@                        word2 == criteria[2] & 
-    #'@                        word3 == criteria[3]) %>% tbl_df %>% .[1, ]
     } else {
       corpUS = 'Unknown predictive next word.'
     }
