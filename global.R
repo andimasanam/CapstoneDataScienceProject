@@ -48,25 +48,10 @@ convertDFM2 <- function(type, parallel = FALSE, sampling = 1){
   return(list(mydfm = mydfm, corpUS = tbl_df(corpUS)))
 }
 
-## ---------------------------------------------------------------------------------
-## convert and save whole population into rds file as dictionary, easier for ngrams word prediction.
-#'@ en_US <- convertDFM2('en_US', sampling = 0.1)
-#'@ saveRDS(en_US, 'Final-Project-Submission/data/en_US.rds')
-
-## Load RDS files
-#'@ en_US <- suppressAll(readRDS('data/en_US.rds'))
-
-## =================================================================================
 # Using "memoise" to automatically cache the results
 selectData <- #memoise(
   function(word = as.character(word)) {
-    # Careful not to let just any name slip in here; a
-    # malicious user could manipulate this value.
-    #'@ if(!is.null(word)& !is.character(word) & !is.numeric(word)) 
-    #'@   stop('Please key in English characters or numbers!')
-    
-    ## http://rpubs.com/Hsing-Yi/176027
-    if(input$name %in% en_US$corpUS$word1) {
+     if(input$name %in% en_US$corpUS$word1) {
       corpUS = en_US$corpUS %>% filter(word1 == input$name) %>% tbl_df
     } else if(input$name %in% paste(en_US$corpUS$word1, en_US$corpUS$word2)) {
       corpUS = en_US$corpUS %>% filter(word1 == strsplit(input$name, ' ')[[1]] & 
