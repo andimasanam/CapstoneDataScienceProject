@@ -1,104 +1,93 @@
-options(shiny.maxRequestSize=95*1024^2)
+library('shiny')
+library('shinyjs')
+library('DT')
+library('plyr')
+library('dplyr')
+library('magrittr')
+library('stringi')
 
-library(shiny)
-library(shinyIncubator)
-library(rJava)
-library(RWeka)
-library(R.utils)
-library(stringi)
-library(stringr)
-library(shiny)
-library(textcat)
-library(tm)
-library(markovchain)
-source("./predictNextWord.R")
+## Load RDS files
+en_US <- suppressAll(readRDS('data/en_US.rds'))
 
-# Read all the necessary files before starting
-shinyServer(function(input, output, session) {
+server = function(input, output) {
+
+  shinyjs::onclick("toggleAdvanced",
+                   shinyjs::toggle(id = "advanced", anim = TRUE))    
   
+  shinyjs::onclick("update", shinyjs::html("time", date()))
   
-  # Read data
-  readData = reactive({  
-    
-    # Read data
-    blackList = read.csv("./Terms-to-Block.csv", skip=4)
-    blackList = blackList[,2]
-    blackList = gsub(",","",blackList) 
-    
-    # read transition matrix that was created during modeling
-    load(file="./transitionMatrix.RData")
-    
-    # create markovs predictor   
-    textPredictor = new("markovchain", transitionMatrix=transitionMatrix)
-    rm(transitionMatrix) 
-  
-    # return
-    return (list("blacklist" = blackList, "markovPredict" = textPredictor))     
-  });
-  
-  
-  
-  
-  ####################################################################################################
-  ####################################### Prediction #################################################
-  ####################################################################################################
-  predictWord = function(updateProgress = NULL){tryCatch({
-   
-    # Initialize 
-    updateProgress(detail = "Working hard..... Predicting is not easy! :) ")      
-    data = readData()
-    
-    
-    #Predicting
-    currentPhrase = preprocessTextInput(input$sPhrase, data$blackList)
-    if (length(currentPhrase) > 0) {    
-      textPrediction = predictNextWord(currentPhrase, 1,  data$markovPredict)        
-      predictedNextWord = t(as.matrix(textPrediction$conditionalProbability))        
-      rownames(predictedNextWord) = "P(term)"     
-      nextWord = (colnames(predictedNextWord)[1])
-    }        
-    
-    # Return the next predicted word
-    return (paste("Based on the phrase/sentence/word you entered, the next highly probable word is: ", toupper(toString(nextWord))))    
-  }, error = function(err){    
-    return (paste("Couldn't predict the Iris species; encountered this error: ", err))
-  }, finally = {} 
-  )}
-  
-  
-  ## Render results
-  output$result = renderText({    
-    
-    # Respond to 'predict' button click only
-    input$predict
-    
-    # User isolate to avoid dependency on other inputs
-    isolate({       
-     
-      # Create a Progress object
-      progress <- shiny::Progress$new()
-      progress$set(message = "", value = 0)
-      
-      # Close the progress when this reactive exits (even if there's an error)
-      on.exit(progress$close())
-      
-      # Create a closure to update progress.
-      # Each time this is called:
-      # - If `value` is NULL, it will move the progress bar 1/5 of the remaining
-      #   distance. If non-NULL, it will set the progress to that value.
-      # - It also accepts optional detail text.
-      updateProgress <- function(value = NULL, detail = NULL) {
-        if (is.null(value)) {
-          value <- progress$getValue()
-          value <- value + (progress$getMax() - value) / 5
-        }
-        progress$set(value = value, detail = detail)
-      }
-      
-      # Find the next word
-      predictWord(updateProgress)     
-    }) 
-    
-    
+  observe({
+    shinyjs::toggleClass("bestMatch", "big", input$big)
   })
-})
+  
+  output$text1 <- renderText({
+    if(!is.null(input$name) & input$name != "")
+      mydfm = en_US$mydfm
+    else
+      mydfm = 0
+    
+    paste0('Document-feature matrix of: ', 
+           as.character(dim(mydfm))[1], 
+           ' documents, ',as.character(dim(mydfm))[2],' features.')
+  })
+
+  output$text2 <- renderText({
+    if(!is.null(input$name) & input$name != "")
+      mydfm = en_US$mydfm
+    else
+      mydfm = 0
+    paste0('Document-feature matrix of: ', 
+           as.character(dim(mydfm))[1], 
+           ' documents, ',as.character(dim(mydfm))[2],' features.')
+  })
+  
+  output$table <- DT::renderDataTable({
+    corpUS = en_US$corpUS
+    
+    ## http://rpubs.com/Hsing-Yi/176027
+    #'@ if(!is.null(input$name) | input$name != "") {
+      criteria = strsplit(input$name, ' ')[[1]]
+      
+      len = length(criteria)
+      if(len == 1) {
+        corpUS %<>% filter(word1 == criteria[1]) %>% tbl_df
+      } else if(len == 2) {
+        corpUS %<>% filter(word1 == criteria[1] & 
+                           word2 == criteria[2]) %>% tbl_df
+      #'@ } else if(len == 3) {
+      #'@   corpUS %<>% filter(word1 == criteria[1] & 
+      #'@                    word2 == criteria[2] & 
+      #'@                    word3 == criteria[3]) %>% tbl_df
+      } else {
+        corpUS = data.frame() %>% tbl_df
+      }
+    DT::datatable(corpUS)
+  })
+  
+  output$text3 <- renderText({
+    corpUS = en_US$corpUS
+    
+    ## http://rpubs.com/Hsing-Yi/176027
+    #'@ if(!is.null(input$name) | input$name != "") {
+    criteria = strsplit(input$name, ' ')[[1]]
+    
+    len = length(criteria)
+    if(len == 1) {
+      corpUS %<>% filter(word1 == criteria[1]) %>% tbl_df %>% .[1, 2] %>% unlist
+    } else if(len == 2) {
+      corpUS %<>% filter(word1 == criteria[1] & 
+                           word2 == criteria[2]) %>% tbl_df %>% .[1, 3] %>% unlist
+    #'@ } else if(len == 3) {
+    #'@   corpUS %<>% filter(word1 == criteria[1] & 
+    #'@                        word2 == criteria[2] & 
+    #'@                        word3 == criteria[3]) %>% tbl_df %>% .[1, ]
+    } else {
+      corpUS = 'Unknown predictive next word.'
+    }
+    return(corpUS)
+  })
+  
+  observeEvent(input$reset, {
+    shinyjs::reset("myapp")
+  })    
+}
