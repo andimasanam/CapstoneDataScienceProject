@@ -9,7 +9,6 @@ ui = fluidPage(
       h2("Capstone - Final Project Submission"),
       textInput("name", "Input :", ""),
       p('Type up to 2 words in sequence with space as system will auto detect the word(s) and suggest you the best predictive next word in table format.'),
-      a(id = "toggleAdvanced", "Show/hide advanced info", href = "#"),
       p("Timestamp: ",
         span(id = "time", date()),
         a(id = "update", "Update", href = "#")
