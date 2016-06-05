@@ -1,79 +1,38 @@
-library('shiny')
-library('shinyjs')
-library('DT')
-library('plyr')
-library('dplyr')
-library('magrittr')
-library('stringi')
+library(shiny)
+library(wordcloud)
 
-## Load RDS files
-en_US <- suppressAll(readRDS('data/en_US.rds'))
+source("predictionFunction.R")
 
-server = function(input, output) {
+shinyServer(function(input, output) {
+        dataInput <- reactive({
+                predictionFunction(input$entry, input$numSuggestions)
+        })
 
-  shinyjs::onclick("toggleAdvanced",
-                   shinyjs::toggle(id = "advanced", anim = TRUE))    
-  
-  shinyjs::onclick("update", shinyjs::html("time", date()))
-  
-  observe({
-    shinyjs::toggleClass("bestMatch", "big", input$big)
-  })
-  
-  output$text1 <- renderText({
-    if(!is.null(input$name) & input$name != "")
-      mydfm = en_US$mydfm
-    else
-      mydfm = 0
-    
-    paste0('Document-feature matrix of: ', 
-           as.character(dim(mydfm))[1], 
-           ' documents, ',as.character(dim(mydfm))[2],' features.')
-  })
+        output$prediction1 <- renderText({
+                res <- dataInput()$names[1]
+                paste(input$entry, res, sep = " ")
+        })
 
-  output$text2 <- renderText({
-    if(!is.null(input$name) & input$name != "")
-      mydfm = en_US$mydfm
-    else
-      mydfm = 0
-    paste0('Document-feature matrix of: ', 
-           as.character(dim(mydfm))[1], 
-           ' documents, ',as.character(dim(mydfm))[2],' features.')
-  })
-  
-  output$table <- DT::renderDataTable({
-    corpUS = en_US$corpUS
-    criteria = strsplit(input$name, ' ')[[1]]
-      len = length(criteria)
-      if(len == 1) {
-        corpUS %<>% filter(word1 == criteria[1]) %>% tbl_df
-      } else if(len == 2) {
-        corpUS %<>% filter(word1 == criteria[1] & 
-                           word2 == criteria[2]) %>% tbl_df
-      } else {
-        corpUS = data.frame() %>% tbl_df
-      }
-    DT::datatable(corpUS)
-  })
-  
-  output$text3 <- renderText({
-    corpUS = en_US$corpUS
-    
-    criteria = strsplit(input$name, ' ')[[1]]
-    
-    len = length(criteria)
-    if(len == 1) {
-      corpUS %<>% filter(word1 == criteria[1]) %>% tbl_df %>% .[1, 2] %>% unlist
-    } else if(len == 2) {
-      corpUS %<>% filter(word1 == criteria[1] & 
-                           word2 == criteria[2]) %>% tbl_df %>% .[1, 3] %>% unlist
-    } else {
-      corpUS = 'Unknown predictive next word.'
-    }
-    return(corpUS)
-  })
-  
-  observeEvent(input$reset, {
-    shinyjs::reset("myapp")
-  })    
-}
+        output$prediction2 <- renderText({
+                p <- paste(input$entry, dataInput()$names[2], sep = "\n")
+                if(length(dataInput()$names) > 2) {
+                        for(i in 3:length(dataInput()$names)) {
+                                r <- paste(input$entry, dataInput()$names[i], sep = " ")
+                                p <- paste(p, r , sep = ", ")
+                        }
+                }
+                p
+        })
+      
+        output$inputted <- renderText({
+                input$entry
+        })
+
+        output$plot <- renderPlot({
+                wordcloud_rep <- repeatable(wordcloud)
+                words <- dataInput()$names
+                wordcloud_rep(words, dataInput()$freq, scale=c(4,1),
+                min.freq = 0, max.words=input$numSuggestions,
+                colors=brewer.pal(8, "Dark2"))
+        })
+})
